@@ -1,1 +1,61 @@
+# ==========================================
+# 🐍 BACKEND (Python / FastAPI)
+# ==========================================
+# Ambientes Virtuais
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+env/
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Arquivos de Configuração / Segredos (Navegadores, Chaves, DB)
+*.env
 .env
+backend/.env
+
+# Banco de dados locais (se houver sqlite de testes)
+*.db
+*.sqlite3
+
+# ==========================================
+# ⚛️ FRONTEND (Node.js / React / Vite)
+# ==========================================
+# Dependências do Node (MUITO PESADO - nunca subir)
+node_modules/
+frontend/node_modules/
+
+# Build de Produção
+dist/
+build/
+frontend/dist/
+frontend/build/
+
+# Logs de Erros do NPM / Yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Configurações do Vite e Ferramentas
+.vite/
+frontend/.vite/
+
+# ==========================================
+# 💻 IDEs, Editores e Sistema Operacional
+# ==========================================
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Arquivos do Sistema
+.DS_Store
+Thumbs.db
