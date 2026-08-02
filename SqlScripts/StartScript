@@ -69,3 +69,40 @@ VALUES (
     1
 );
 GO
+
+-- 7. Tabela de Permissões (Cadastra telas e ações do sistema)
+CREATE TABLE dbo.T_PERMISSAO (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    CHAVE VARCHAR(100) NOT NULL UNIQUE, -- Ex: 'CLIENTES_CRIAR', 'FUNCIONARIOS_DELETAR'
+    NOME VARCHAR(100) NOT NULL,        -- Ex: 'Criar Clientes'
+    MODULO VARCHAR(50) NOT NULL,         -- Ex: 'CLIENTES', 'FUNCIONARIOS'
+    DESCRICAO VARCHAR(200) NULL
+);
+GO
+
+-- 8. Tabela Intermediária (Relacionamento N:N entre Perfil e Permissão)
+CREATE TABLE dbo.T_PERFIL_PERMISSAO (
+    PERFIL_ID INT NOT NULL,
+    PERMISSAO_ID INT NOT NULL,
+    CONSTRAINT PK_PERFIL_PERMISSAO PRIMARY KEY (PERFIL_ID, PERMISSAO_ID),
+    CONSTRAINT FK_PP_PERFIL FOREIGN KEY (PERFIL_ID) REFERENCES dbo.T_PERFIL(ID) ON DELETE CASCADE,
+    CONSTRAINT FK_PP_PERMISSAO FOREIGN KEY (PERMISSAO_ID) REFERENCES dbo.T_PERMISSAO(ID) ON DELETE CASCADE
+);
+GO
+
+-- 9. Carga Inicial de Permissões Básicas
+INSERT INTO dbo.T_PERMISSAO (CHAVE, NOME, MODULO, DESCRICAO) VALUES 
+('FUNCIONARIOS_VER', 'Visualizar Funcionários', 'FUNCIONARIOS', 'Permite listar e visualizar dados de funcionários'),
+('FUNCIONARIOS_CRIAR', 'Criar Funcionário', 'FUNCIONARIOS', 'Permite cadastrar novos funcionários'),
+('FUNCIONARIOS_EDITAR', 'Editar Funcionário', 'FUNCIONARIOS', 'Permite editar dados de funcionários existentes'),
+('FUNCIONARIOS_DELETAR', 'Excluir Funcionário', 'FUNCIONARIOS', 'Permite remover funcionários'),
+('CLIENTES_VER', 'Visualizar Clientes', 'CLIENTES', 'Permite listar e visualizar clientes'),
+('CLIENTES_CRIAR', 'Criar Cliente', 'CLIENTES', 'Permite cadastrar novos clientes'),
+('CLIENTES_EDITAR', 'Editar Cliente', 'CLIENTES', 'Permite alterar dados de clientes'),
+('CLIENTES_DELETAR', 'Excluir Cliente', 'CLIENTES', 'Permite remover clientes');
+GO
+
+-- 10. Conceder todas as permissões iniciais ao Perfil ADMINISTRADOR (ID = 1)
+INSERT INTO dbo.T_PERFIL_PERMISSAO (PERFIL_ID, PERMISSAO_ID)
+SELECT 1, ID FROM dbo.T_PERMISSAO;
+GO
