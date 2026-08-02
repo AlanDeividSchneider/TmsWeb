@@ -1,7 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
 from app.api.deps import get_db, get_current_user
 from app.models.funcionario import Funcionario
 from app.schemas.funcionario import FuncionarioCreate, FuncionarioUpdate, FuncionarioResponse
@@ -12,7 +11,7 @@ router = APIRouter()
 
 # Helper para validar perfil de Administrador
 def verificar_admin(user: Funcionario):
-    if user.PERFIL != "ADMINISTRADOR":
+    if user.PERFIL != 1:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso negado: Apenas administradores podem gerenciar usuários."

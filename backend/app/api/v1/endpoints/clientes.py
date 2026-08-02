@@ -98,7 +98,7 @@ def excluir_cliente(
     current_user: Funcionario = Depends(get_current_user)
 ):
     # Regra de negócio: Perfil CLIENTE não pode excluir!
-    if current_user.PERFIL not in ["ADMINISTRADOR", "SUPORTE"]:
+    if current_user.PERFIL not in [1, 2]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Seu perfil de usuário não tem permissão para excluir registros."

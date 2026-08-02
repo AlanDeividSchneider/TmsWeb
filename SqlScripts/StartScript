@@ -5,7 +5,22 @@ GO
 USE SistemaTMS;
 GO
 
--- 2. Tabela de Funcionários/Usuários (Acesso ao Sistema)
+-- 2. Tabela de Perfis
+CREATE TABLE dbo.T_PERFIL (
+    ID INT IDENTITY(1,1) PRIMARY KEY,
+    NOME VARCHAR(50) NOT NULL UNIQUE,
+    DESCRICAO VARCHAR(150) NULL
+);
+GO
+
+-- Inserção dos Perfis Padrão
+INSERT INTO dbo.T_PERFIL (NOME, DESCRICAO) VALUES 
+('administrador', 'Acesso total ao sistema'),
+('suporte', 'Acesso privilegiado para gerenciamento e suporte'),
+('usuário', 'Acesso limitado para consulta de clientes');
+GO
+
+-- 3. Tabela de Funcionários / Usuários
 CREATE TABLE dbo.T_FUNCIONARIO (
     ID INT IDENTITY(1,1) PRIMARY KEY,
     NOME VARCHAR(150) NOT NULL,
@@ -13,12 +28,13 @@ CREATE TABLE dbo.T_FUNCIONARIO (
     CPF VARCHAR(11) NOT NULL UNIQUE, 
     LOGIN VARCHAR(50) NOT NULL UNIQUE,
     SENHA VARCHAR(255) NOT NULL,
-    PERFIL VARCHAR(20) NOT NULL CONSTRAINT CHK_Perfil CHECK (PERFIL IN ('ADMINISTRADOR', 'SUPORTE', 'CLIENTE')),
-    CRIADO DATETIME2 NOT NULL DEFAULT GETDATE()
+    PERFIL INT NOT NULL,
+    CRIADO DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_FUNCIONARIO_PERFIL FOREIGN KEY (PERFIL) REFERENCES dbo.T_PERFIL(ID)
 );
 GO
 
--- 3. Tabela de Clientes
+-- 4. Tabela de Clientes
 CREATE TABLE dbo.T_CLIENTE (
     ID INT IDENTITY(1,1) PRIMARY KEY,
     CPFCNPJ VARCHAR(14) NOT NULL UNIQUE, 
@@ -29,20 +45,20 @@ CREATE TABLE dbo.T_CLIENTE (
 );
 GO
 
--- 4. Tabela de Auditoria (Logs de Alteração e Exclusão)
+-- 5. Tabela de Auditoria (Logs)
 CREATE TABLE dbo.T_LOGS (
     ID INT IDENTITY(1,1) PRIMARY KEY,
-    USUARIOID INT NULL, -- ID do funcionário que executou a ação
+    USUARIOID INT NULL,
     ACAO VARCHAR(10) NOT NULL CONSTRAINT CHK_Acao CHECK (ACAO IN ('INSERT', 'UPDATE', 'DELETE')),
     TABELA VARCHAR(50) NOT NULL,
     REGISTROID INT NOT NULL,
     DATAHORA DATETIME2 NOT NULL DEFAULT GETDATE(),
-    DETALHES NVARCHAR(MAX) NULL, -- Guarda os dados antigos e novos em JSON
+    DETALHES NVARCHAR(MAX) NULL,
     CONSTRAINT FK_AuditLogs_Funcionarios FOREIGN KEY (USUARIOID) REFERENCES dbo.T_FUNCIONARIO(ID) ON DELETE SET NULL
 );
 GO
 
--- 5. Inserção do Usuário Administrador Inicial (Corrigido)
+-- 6. Inserção do Usuário Administrador Inicial (Apontando para PERFIL = 1)
 INSERT INTO dbo.T_FUNCIONARIO (NOME, UNIDADE, CPF, LOGIN, SENHA, PERFIL)
 VALUES (
     'Administrador', 
@@ -50,6 +66,6 @@ VALUES (
     '00000000000', 
     'admin', 
     '$2b$12$eImiTXuWVxfM37uY4JANjO8e.G/k8T1y2f3a4b5c6d7e8f9g0h1i2', 
-    'ADMINISTRADOR'
+    1
 );
 GO

@@ -7,7 +7,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     login: Optional[str] = None
-    perfil: Optional[str] = None
+    perfil: Optional[int] = None
     usuario_id: Optional[int] = None
 
 class LoginRequest(BaseModel):

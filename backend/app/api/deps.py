@@ -32,7 +32,7 @@ def get_current_user(
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         login: str = payload.get("sub")
-        perfil: str = payload.get("perfil")
+        perfil: int = payload.get("perfil")
         usuario_id: int = payload.get("id")
         
         if login is None:
