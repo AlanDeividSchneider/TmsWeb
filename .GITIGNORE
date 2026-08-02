@@ -59,3 +59,7 @@ frontend/.vite/
 # Arquivos do Sistema
 .DS_Store
 Thumbs.db
+
+# Tauri / Rust (Importante!)
+**/src-tauri/target/
+**/src-tauri/gen/
