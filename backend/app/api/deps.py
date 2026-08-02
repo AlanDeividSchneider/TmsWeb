@@ -45,3 +45,30 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+def requer_permissao(chave_exigida: str):
+    """
+    Função fábrica que recebe a CHAVE da permissão (ex: 'FUNCIONARIOS_CRIAR')
+    e verifica se o usuário logado possui essa permissão no seu perfil.
+    """
+    def verificador(current_user: Funcionario = Depends(get_current_user)) -> Funcionario:
+        # Se o usuário não tiver perfil associado
+        if not current_user.perfil_rel:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuário não possui um perfil associado."
+            )
+
+        # Coleta todas as CHAVES de permissão vinculadas ao perfil do usuário logado
+        chaves_do_usuario = [p.CHAVE for p in current_user.perfil_rel.permissoes]
+
+        # Se a chave necessária não estiver na lista de permissões dele, bloqueia!
+        if chave_exigida not in chaves_do_usuario:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Acesso negado. Requer permissão: '{chave_exigida}'"
+            )
+
+        return current_user
+
+    return verificador

@@ -1,113 +1,162 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_user
+
+from app.api.deps import get_db, requer_permissao
 from app.models.funcionario import Funcionario
-from app.schemas.funcionario import FuncionarioCreate, FuncionarioUpdate, FuncionarioResponse
+from app.schemas.funcionario import (
+    FuncionarioCreate,
+    FuncionarioUpdate,
+    FuncionarioResponse,
+)
 from app.core.security import get_password_hash
-from app.core.audit import registrar_log
 
 router = APIRouter()
 
-# Helper para validar perfil de Administrador
-def verificar_admin(user: Funcionario):
-    if user.PERFIL != 1:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso negado: Apenas administradores podem gerenciar usuários."
-        )
 
-# 1. CADASTRAR FUNCIONÁRIO
-@router.post("/", response_model=FuncionarioResponse, status_code=status.HTTP_201_CREATED)
-def criar_funcionario(
-    func_in: FuncionarioCreate,
-    db: Session = Depends(get_db),
-    current_user: Funcionario = Depends(get_current_user)
-):
-    verificar_admin(current_user)
-
-    # Verifica se LOGIN ou CPF já existem
-    if db.query(Funcionario).filter(Funcionario.LOGIN == func_in.LOGIN).first():
-        raise HTTPException(status_code=400, detail="Este LOGIN já está em uso.")
-    if db.query(Funcionario).filter(Funcionario.CPF == func_in.CPF).first():
-        raise HTTPException(status_code=400, detail="Este CPF já está cadastrado.")
-
-    # Criptografa a senha antes de salvar no SQL Server
-    dados_dict = func_in.model_dump()
-    dados_dict["SENHA"] = get_password_hash(func_in.SENHA)
-
-    novo_func = Funcionario(**dados_dict)
-    db.add(novo_func)
-    db.commit()
-    db.refresh(novo_func)
-
-    # Registro no Log de Auditoria
-    registrar_log(
-        db=db,
-        usuario_id=current_user.ID,
-        acao="INSERT",
-        tabela="T_FUNCIONARIO",
-        registro_id=novo_func.ID,
-        detalhes={"NOME": novo_func.NOME, "LOGIN": novo_func.LOGIN, "PERFIL": novo_func.PERFIL}
-    )
-
-    return novo_func
-
-# 2. LISTAR FUNCIONÁRIOS
 @router.get("/", response_model=List[FuncionarioResponse])
-def listar_funcionarios(
+def read_funcionarios(
+    db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: Funcionario = Depends(get_current_user)
-):
-    verificar_admin(current_user)
-    
-    # Com order_by exigido pelo SQL Server para offset/limit
-    return (
+    current_user: Funcionario = Depends(requer_permissao("FUNCIONARIOS_VER")),
+) -> Any:
+    """
+    Lista todos os funcionários.
+    Exige a permissão: FUNCIONARIOS_VER
+    """
+    # 👈 Adicionado .order_by(Funcionario.ID) para suportar a paginação no SQL Server
+    funcionarios = (
         db.query(Funcionario)
         .order_by(Funcionario.ID)
         .offset(skip)
         .limit(limit)
         .all()
     )
+    return funcionarios
 
-# 3. ATUALIZAR FUNCIONÁRIO (PERFIL OU SENHA)
-@router.put("/{func_id}", response_model=FuncionarioResponse)
-def atualizar_funcionario(
-    func_id: int,
-    func_in: FuncionarioUpdate,
+
+@router.get("/{id}", response_model=FuncionarioResponse)
+def read_funcionario_by_id(
+    id: int,
     db: Session = Depends(get_db),
-    current_user: Funcionario = Depends(get_current_user)
-):
-    verificar_admin(current_user)
+    current_user: Funcionario = Depends(requer_permissao("FUNCIONARIOS_VER")),
+) -> Any:
+    """
+    Busca um funcionário específico pelo ID.
+    Exige a permissão: FUNCIONARIOS_VER
+    """
+    funcionario = db.query(Funcionario).filter(Funcionario.ID == id).first()
+    if not funcionario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Funcionário não encontrado.",
+        )
+    return funcionario
 
-    func = db.query(Funcionario).filter(Funcionario.ID == func_id).first()
-    if not func:
-        raise HTTPException(status_code=404, detail="Funcionário não encontrado.")
 
-    dados_atualizar = func_in.model_dump(exclude_unset=True)
+@router.post("/", response_model=FuncionarioResponse, status_code=status.HTTP_201_CREATED)
+def create_funcionario(
+    *,
+    db: Session = Depends(get_db),
+    funcionario_in: FuncionarioCreate,
+    current_user: Funcionario = Depends(requer_permissao("FUNCIONARIOS_CRIAR")),
+) -> Any:
+    """
+    Cadastra um novo funcionário.
+    Exige a permissão: FUNCIONARIOS_CRIAR
+    """
+    # Verifica se já existe um funcionário com o mesmo CPF
+    user_cpf = db.query(Funcionario).filter(Funcionario.CPF == funcionario_in.CPF).first()
+    if user_cpf:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Já existe um funcionário cadastrado com este CPF.",
+        )
 
-    # Se a senha foi informada na atualização, faz o hash dela
-    if "SENHA" in dados_atualizar and dados_atualizar["SENHA"]:
-        dados_atualizar["SENHA"] = get_password_hash(dados_atualizar["SENHA"])
+    # Verifica se já existe um funcionário com o mesmo LOGIN
+    user_login = db.query(Funcionario).filter(Funcionario.LOGIN == funcionario_in.LOGIN).first()
+    if user_login:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este login já está em uso por outro funcionário.",
+        )
 
-    for campo, valor in dados_atualizar.items():
-        setattr(func, campo, valor)
-
-    db.commit()
-    db.refresh(func)
-
-    # Omitir a hash da senha do detalhe do log por segurança
-    detalhes_log = {k: v for k, v in dados_atualizar.items() if k != "SENHA"}
-    
-    registrar_log(
-        db=db,
-        usuario_id=current_user.ID,
-        acao="UPDATE",
-        tabela="T_FUNCIONARIO",
-        registro_id=func.ID,
-        detalhes=detalhes_log
+    # Cria o novo registro encriptando a senha
+    db_obj = Funcionario(
+        NOME=funcionario_in.NOME,
+        UNIDADE=funcionario_in.UNIDADE,
+        CPF=funcionario_in.CPF,
+        LOGIN=funcionario_in.LOGIN,
+        SENHA=get_password_hash(funcionario_in.SENHA),
+        PERFIL=funcionario_in.PERFIL,
     )
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj
 
-    return func
+
+@router.put("/{id}", response_model=FuncionarioResponse)
+def update_funcionario(
+    *,
+    db: Session = Depends(get_db),
+    id: int,
+    funcionario_in: FuncionarioUpdate,
+    current_user: Funcionario = Depends(requer_permissao("FUNCIONARIOS_EDITAR")),
+) -> Any:
+    """
+    Atualiza os dados de um funcionário existente.
+    Exige a permissão: FUNCIONARIOS_EDITAR
+    """
+    funcionario = db.query(Funcionario).filter(Funcionario.ID == id).first()
+    if not funcionario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Funcionário não encontrado.",
+        )
+
+    # Atualiza apenas os campos enviados no payload
+    update_data = funcionario_in.model_dump(exclude_unset=True)
+    
+    # Se a senha foi informada para atualização, gera o hash
+    if "SENHA" in update_data and update_data["SENHA"]:
+        update_data["SENHA"] = get_password_hash(update_data["SENHA"])
+
+    for field, value in update_data.items():
+        setattr(funcionario, field, value)
+
+    db.add(funcionario)
+    db.commit()
+    db.refresh(funcionario)
+    return funcionario
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_funcionario(
+    *,
+    db: Session = Depends(get_db),
+    id: int,
+    current_user: Funcionario = Depends(requer_permissao("FUNCIONARIOS_DELETAR")),
+):
+    """
+    Remove um funcionário do sistema.
+    Exige a permissão: FUNCIONARIOS_DELETAR
+    """
+    funcionario = db.query(Funcionario).filter(Funcionario.ID == id).first()
+    if not funcionario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Funcionário não encontrado.",
+        )
+
+    # Evita que o próprio usuário logado se auto-delete
+    if funcionario.ID == current_user.ID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível remover a sua própria conta.",
+        )
+
+    db.delete(funcionario)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
