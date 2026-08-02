@@ -212,9 +212,9 @@ export default function Funcionarios() {
                     onChange={(e) => setPerfil(e.target.value)}
                     style={styles.input}
                   >
-                    <option value="ADMINISTRADOR">ADMINISTRADOR</option>
-                    <option value="SUPORTE">SUPORTE</option>
-                    <option value="CLIENTE">CLIENTE</option>
+                    <option value="1">ADMINISTRADOR</option>
+                    <option value="2">SUPORTE</option>
+                    <option value="3">USUÁRIO</option>
                   </select>
                 </div>
               </div>
