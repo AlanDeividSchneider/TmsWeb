@@ -1,25 +1,28 @@
-from pydantic import BaseModel, Field, ConfigDict
-from datetime import datetime
+from pydantic import BaseModel
 from typing import Optional
+from app.schemas.perfil import PerfilResponse
 
 class FuncionarioBase(BaseModel):
-    NOME: str = Field(..., max_length=150)
-    UNIDADE: str = Field(..., max_length=100)
-    CPF: str = Field(..., min_length=11, max_length=11)
-    LOGIN: str = Field(..., max_length=50)
-    PERFIL: str = Field(..., max_length=20, description="ADMINISTRADOR, SUPORTE ou CLIENTE")
+    NOME: str
+    UNIDADE: str
+    CPF: str
+    LOGIN: str
+    PERFIL: int
 
 class FuncionarioCreate(FuncionarioBase):
-    SENHA: str = Field(..., min_length=6, max_length=100)
+    SENHA: str
 
 class FuncionarioUpdate(BaseModel):
-    NOME: Optional[str] = Field(None, max_length=150)
-    UNIDADE: Optional[str] = Field(None, max_length=100)
-    PERFIL: Optional[str] = Field(None, max_length=20)
-    SENHA: Optional[str] = Field(None, min_length=6)
+    NOME: Optional[str] = None
+    UNIDADE: Optional[str] = None
+    CPF: Optional[str] = None
+    LOGIN: Optional[str] = None
+    SENHA: Optional[str] = None
+    PERFIL: Optional[int] = None
 
 class FuncionarioResponse(FuncionarioBase):
     ID: int
-    CRIADO: datetime
+    perfil_rel: Optional[PerfilResponse] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True

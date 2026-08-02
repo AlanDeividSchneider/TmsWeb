@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, DateTime
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
+from app.models.perfil import Perfil
 
 class Funcionario(Base):
     __tablename__ = "T_FUNCIONARIO"
@@ -8,8 +9,9 @@ class Funcionario(Base):
     ID = Column(Integer, primary_key=True, index=True, autoincrement=True)
     NOME = Column(String(150), nullable=False)
     UNIDADE = Column(String(100), nullable=False)
-    CPF = Column(String(11), unique=True, nullable=False, index=True)
-    LOGIN = Column(String(50), unique=True, nullable=False, index=True)
-    SENHA = Column(String(255), nullable=False)
-    PERFIL = Column(String(20), nullable=False)
-    CRIADO = Column(DateTime, default=datetime.utcnow, nullable=False)
+    CPF = Column(String(11), nullable=False, unique=True)
+    LOGIN = Column(String(50), nullable=False, unique=True)
+    SENHA = Column(String(255), nullable=False)   
+    PERFIL = Column(Integer, ForeignKey("T_PERFIL.ID"), nullable=False)
+    CRIADO = Column(DateTime, server_default=func.now(), nullable=False)
+    perfil_rel = relationship("Perfil", back_populates="funcionarios", lazy="joined")
