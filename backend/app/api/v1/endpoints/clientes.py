@@ -1,51 +1,31 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_user
+
+from app.api.deps import get_db, requer_permissao
 from app.models.cliente import Cliente
 from app.models.funcionario import Funcionario
-from app.schemas.cliente import ClienteCreate, ClienteUpdate, ClienteResponse
-from app.core.audit import registrar_log
+from app.schemas.cliente import (
+    ClienteCreate,
+    ClienteUpdate,
+    ClienteResponse,
+)
+from app.core.audit import registrar_log  # Ajuste o import conforme a localização da sua função de log
 
 router = APIRouter()
 
-# 1. CRIAR CLIENTE (ADMINISTRADOR, SUPORTE, CLIENTE)
-@router.post("/", response_model=ClienteResponse, status_code=status.HTTP_201_CREATED)
-def criar_cliente(
-    cliente_in: ClienteCreate,
-    db: Session = Depends(get_db),
-    current_user: Funcionario = Depends(get_current_user)
-):
-    # Verifica se CPF/CNPJ já existe
-    if db.query(Cliente).filter(Cliente.CPFCNPJ == cliente_in.CPFCNPJ).first():
-        raise HTTPException(status_code=400, detail="CPF/CNPJ já cadastrado no sistema.")
 
-    novo_cliente = Cliente(**cliente_in.model_dump())
-    db.add(novo_cliente)
-    db.commit()
-    db.refresh(novo_cliente)
-
-    # Grava Log de Auditoria
-    registrar_log(
-        db=db,
-        usuario_id=current_user.ID,
-        acao="INSERT",
-        tabela="T_CLIENTE",
-        registro_id=novo_cliente.ID,
-        detalhes=cliente_in.model_dump()
-    )
-
-    return novo_cliente
-
-
-# 2. LISTAR CLIENTES
 @router.get("/", response_model=List[ClienteResponse])
-def listar_clientes(
+def read_clientes(
+    db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: Funcionario = Depends(get_current_user)
-):
+    current_user: Funcionario = Depends(requer_permissao("CLIENTES_VER")),
+) -> Any:
+    """
+    Lista todos os clientes com ordenação.
+    Exige a permissão: CLIENTES_VER
+    """
     clientes = (
         db.query(Cliente)
         .order_by(Cliente.ID)
@@ -56,26 +36,106 @@ def listar_clientes(
     return clientes
 
 
-# 3. ATUALIZAR CLIENTE (ADMINISTRADOR, SUPORTE, CLIENTE)
-@router.put("/{cliente_id}", response_model=ClienteResponse)
-def atualizar_cliente(
-    cliente_id: int,
-    cliente_in: ClienteUpdate,
+@router.get("/{id}", response_model=ClienteResponse)
+def read_cliente_by_id(
+    id: int,
     db: Session = Depends(get_db),
-    current_user: Funcionario = Depends(get_current_user)
-):
-    cliente = db.query(Cliente).filter(Cliente.ID == cliente_id).first()
+    current_user: Funcionario = Depends(requer_permissao("CLIENTES_VER")),
+) -> Any:
+    """
+    Busca um cliente pelo ID.
+    Exige a permissão: CLIENTES_VER
+    """
+    cliente = db.query(Cliente).filter(Cliente.ID == id).first()
     if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cliente não encontrado.",
+        )
+    return cliente
 
-    dados_antigos = {"NOME": cliente.NOME, "UNIDADE": cliente.UNIDADE, "CPFCNPJ": cliente.CPFCNPJ}
-    dados_novos = cliente_in.model_dump(exclude_unset=True)
 
-    for campo, valor in dados_novos.items():
-        setattr(cliente, campo, valor)
+@router.post("/", response_model=ClienteResponse, status_code=status.HTTP_201_CREATED)
+def create_cliente(
+    *,
+    db: Session = Depends(get_db),
+    cliente_in: ClienteCreate,
+    current_user: Funcionario = Depends(requer_permissao("CLIENTES_CRIAR")),
+) -> Any:
+    """
+    Cadastra um novo cliente e grava log de auditoria.
+    Exige a permissão: CLIENTES_CRIAR
+    """
+    # Validação de duplicidade por documento se existir no schema
+    if hasattr(cliente_in, "DOCUMENTO") and cliente_in.DOCUMENTO:
+        existente = db.query(Cliente).filter(Cliente.DOCUMENTO == cliente_in.DOCUMENTO).first()
+        if existente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Já existe um cliente cadastrado com este documento.",
+            )
 
+    db_obj = Cliente(**cliente_in.model_dump())
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+
+    # Grava Log de Auditoria
+    registrar_log(
+        db=db,
+        usuario_id=current_user.ID,
+        acao="INSERT",
+        tabela="T_CLIENTE",
+        registro_id=db_obj.ID,
+        detalhes=cliente_in.model_dump(),
+    )
+
+    return db_obj
+
+
+@router.put("/{id}", response_model=ClienteResponse)
+def update_cliente(
+    *,
+    db: Session = Depends(get_db),
+    id: int,
+    cliente_in: ClienteUpdate,
+    current_user: Funcionario = Depends(requer_permissao("CLIENTES_EDITAR")),
+) -> Any:
+    """
+    Atualiza dados de um cliente existente e grava log de auditoria.
+    Exige a permissão: CLIENTES_EDITAR
+    """
+    cliente = db.query(Cliente).filter(Cliente.ID == id).first()
+    if not cliente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cliente não encontrado.",
+        )
+
+    estado_anterior = {
+        "NOME": cliente.NOME,
+        "UNIDADE": cliente.UNIDADE,
+        "CPFCNPJ": cliente.CPFCNPJ
+    }
+
+    update_data = cliente_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(cliente, field, value)
+
+    db.add(cliente)
     db.commit()
     db.refresh(cliente)
+
+    estado_novo = {
+            "NOME": cliente.NOME,
+            "UNIDADE": cliente.UNIDADE,
+            "CPFCNPJ": cliente.CPFCNPJ
+        }
+
+    detalhes_log = {
+        "antes": estado_anterior,
+        "depois": estado_novo,
+    }
 
     # Grava Log de Auditoria
     registrar_log(
@@ -84,30 +144,31 @@ def atualizar_cliente(
         acao="UPDATE",
         tabela="T_CLIENTE",
         registro_id=cliente.ID,
-        detalhes={"antes": dados_antigos, "depois": dados_novos}
+        detalhes=detalhes_log,
     )
 
     return cliente
 
 
-# 4. EXCLUIR CLIENTE (APENAS SUPORTE E ADMINISTRADOR)
-@router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
-def excluir_cliente(
-    cliente_id: int,
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cliente(
+    *,
     db: Session = Depends(get_db),
-    current_user: Funcionario = Depends(get_current_user)
+    id: int,
+    current_user: Funcionario = Depends(requer_permissao("CLIENTES_DELETAR")),
 ):
-    # Regra de negócio: Perfil CLIENTE não pode excluir!
-    if current_user.PERFIL not in [1, 2]:
+    """
+    Remove um cliente e grava log de auditoria.
+    Exige a permissão: CLIENTES_DELETAR
+    """
+    cliente = db.query(Cliente).filter(Cliente.ID == id).first()
+    if not cliente:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu perfil de usuário não tem permissão para excluir registros."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cliente não encontrado.",
         )
 
-    cliente = db.query(Cliente).filter(Cliente.ID == cliente_id).first()
-    if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado.")
-
+    registro_id = cliente.ID
     db.delete(cliente)
     db.commit()
 
@@ -117,6 +178,8 @@ def excluir_cliente(
         usuario_id=current_user.ID,
         acao="DELETE",
         tabela="T_CLIENTE",
-        registro_id=cliente_id,
-        detalhes={"NOME": cliente.NOME, "CPFCNPJ": cliente.CPFCNPJ}
+        registro_id=registro_id,
+        detalhes={"id": registro_id, "nome": getattr(cliente, "NOME", None)},
     )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

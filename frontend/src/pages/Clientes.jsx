@@ -22,7 +22,13 @@ export default function Clientes({ onLogout }) {
       const response = await api.get('/clientes/');
       setClientes(response.data);
     } catch (err) {
-      alert('Erro ao carregar clientes.');
+      // Verifica se o erro veio da API e se o status é 403 (Acesso Negado)
+      if (err.response && err.response.status === 403) {
+        const mensagemErro = err.response.data?.detail || 'Você não tem permissão para acessar esta tela.';
+        alert(mensagemErro);
+      } else {
+        alert('Erro ao carregar clientes.');
+      }
     } finally {
       setLoading(false);
     }
@@ -105,9 +111,6 @@ export default function Clientes({ onLogout }) {
         <div>
           <button onClick={handleAbrirModalNovo} style={styles.btnPrimary}>
             + Novo Cliente
-          </button>
-          <button onClick={onLogout} style={styles.btnDanger}>
-            Sair
           </button>
         </div>
       </div>

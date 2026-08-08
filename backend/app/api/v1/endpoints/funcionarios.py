@@ -10,6 +10,7 @@ from app.schemas.funcionario import (
     FuncionarioResponse,
 )
 from app.core.security import get_password_hash
+from app.core.audit import registrar_log
 
 router = APIRouter()
 
@@ -94,6 +95,17 @@ def create_funcionario(
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
+
+    # Grava Log de Auditoria
+    registrar_log(
+        db=db,
+        usuario_id=current_user.ID,
+        acao="INSERT",
+        tabela="T_FUNCIONARIO",
+        registro_id=db_obj.ID,
+        detalhes=funcionario_in.model_dump(),
+    )
+
     return db_obj
 
 
@@ -116,6 +128,14 @@ def update_funcionario(
             detail="Funcionário não encontrado.",
         )
 
+    estado_anterior = {
+        "NOME": funcionario.NOME,
+        "UNIDADE": funcionario.UNIDADE,
+        "CPF": funcionario.CPF,
+        "LOGIN": funcionario.LOGIN,
+        "PERFIL": funcionario.PERFIL,
+    }
+
     # Atualiza apenas os campos enviados no payload
     update_data = funcionario_in.model_dump(exclude_unset=True)
     
@@ -129,6 +149,30 @@ def update_funcionario(
     db.add(funcionario)
     db.commit()
     db.refresh(funcionario)
+
+    estado_novo = {
+        "NOME": funcionario.NOME,
+        "UNIDADE": funcionario.UNIDADE,
+        "CPF": funcionario.CPF,
+        "LOGIN": funcionario.LOGIN,
+        "PERFIL": funcionario.PERFIL,
+    }
+
+    detalhes_log = {
+        "antes": estado_anterior,
+        "depois": estado_novo,
+    }
+
+    # Grava Log de Auditoria
+    registrar_log(
+        db=db,
+        usuario_id=current_user.ID,
+        acao="UPDATE",
+        tabela="T_FUNCIONARIO",
+        registro_id=funcionario.ID,
+        detalhes=detalhes_log,
+    )
+
     return funcionario
 
 
@@ -157,6 +201,22 @@ def delete_funcionario(
             detail="Não é possível remover a sua própria conta.",
         )
 
+    # Armazena os dados do registro antes de deletar do banco
+    registro_id = funcionario.ID
+    nome_funcionario = funcionario.NOME
+
+    # Deleta o funcionário
     db.delete(funcionario)
     db.commit()
+
+    # Grava Log de Auditoria
+    registrar_log(
+        db=db,
+        usuario_id=current_user.ID,
+        acao="DELETE",
+        tabela="T_FUNCIONARIO",
+        registro_id=registro_id,
+        detalhes={"id": registro_id, "nome": nome_funcionario},
+    )
+
     return Response(status_code=status.HTTP_204_NO_CONTENT)

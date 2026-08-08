@@ -58,6 +58,36 @@ export default function Funcionarios() {
     setShowModal(true);
   };
 
+const handleDelete = async (id, nome) => {
+    // Validação extra para garantir que o ID existe antes de chamar a API
+    if (!id) {
+      alert('Erro: ID do funcionário inválido.');
+      return;
+    }
+
+    // Confirmação antes de excluir (agora utilizando 'nome' corretamente)
+    if (!window.confirm(`Tem certeza que deseja excluir o funcionário "${nome}"?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/funcionarios/${id}`);
+      alert('Funcionário excluído com sucesso!');
+      // Recarrega a lista para atualizar a tabela
+      carregarFuncionarios();
+    } catch (err) {
+      if (err.response && err.response.status === 403) {
+        // Captura o erro de falta de permissão enviado pelo FastAPI
+        const mensagemErro = err.response.data?.detail || 'Você não tem permissão para excluir funcionários.';
+        alert(mensagemErro);
+      } else if (err.response && err.response.data?.detail) {
+        alert(err.response.data.detail);
+      } else {
+        alert('Erro ao excluir funcionário.');
+      }
+    }
+  };
+
   const handleSalvar = async (e) => {
     e.preventDefault();
     setError('');
@@ -137,6 +167,12 @@ export default function Funcionarios() {
                   <td style={{ ...styles.cell, textAlign: 'center' }}>
                     <button onClick={() => handleAbrirModalEditar(f)} style={styles.btnEdit}>
                       Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(f.ID, f.NOME)}
+                      style={styles.btnDelete}
+                    >
+                      Excluir
                     </button>
                   </td>
                 </tr>
@@ -261,7 +297,8 @@ const styles = {
   row: { display: 'flex', gap: '1rem' },
   btnPrimary: { backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '500', cursor: 'pointer' },
   btnSecondary: { backgroundColor: '#e2e8f0', color: '#475569', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '500', cursor: 'pointer' },
-  btnEdit: { backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' },
+  btnEdit: { backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', marginRight: '0.4rem'},
+  btnDelete: { backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' },
   badgeAdmin: { backgroundColor: '#fef3c7', color: '#92400e', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' },
   badgeUser: { backgroundColor: '#f1f5f9', color: '#475569', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
