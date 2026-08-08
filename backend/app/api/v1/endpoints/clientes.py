@@ -1,7 +1,6 @@
 from typing import List, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
-
 from app.api.deps import get_db, requer_permissao
 from app.models.cliente import Cliente
 from app.models.funcionario import Funcionario
@@ -10,7 +9,7 @@ from app.schemas.cliente import (
     ClienteUpdate,
     ClienteResponse,
 )
-from app.core.audit import registrar_log  # Ajuste o import conforme a localização da sua função de log
+from app.core.audit import registrar_log  
 
 router = APIRouter()
 

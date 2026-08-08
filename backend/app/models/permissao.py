@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Table, ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 # Tabela intermediária de ligação entre Perfil e Permissão (N:N)
