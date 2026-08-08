@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Login from './pages/Login';
 import Clientes from './pages/Clientes';
 import Funcionarios from './pages/Funcionarios';
+import GestaoPermissoes from './pages/GestaoPermissoes';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -38,6 +39,12 @@ export default function App() {
           >
             Funcionários
           </button>
+          <button
+            onClick={() => setAbaAtiva('permissoes')}
+            style={abaAtiva === 'permissoes' ? styles.navBtnActive : styles.navBtn}
+          >
+            Permissões
+          </button>
         </div>
         <button onClick={handleLogout} style={styles.btnLogout}>
           Sair
@@ -46,7 +53,9 @@ export default function App() {
 
       {/* Renderiza a tela baseada na aba ativa */}
       <main>
-        {abaAtiva === 'clientes' ? <Clientes onLogout={handleLogout} /> : <Funcionarios />}
+        {abaAtiva === 'clientes' && <Clientes onLogout={handleLogout} />}
+        {abaAtiva === 'funcionarios' && <Funcionarios />}
+        {abaAtiva === 'permissoes' && <GestaoPermissoes />}
       </main>
     </div>
   );
