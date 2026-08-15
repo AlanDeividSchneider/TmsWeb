@@ -146,19 +146,21 @@ export default function Clientes({ onLogout }) {
                     <td style={styles.cell}>{c.CPFCNPJ}</td>
                     <td style={styles.cell}>{c.UNIDADE}</td>
                     <td style={styles.cell}>{new Date(c.CRIADO).toLocaleDateString('pt-BR')}</td>
-                    <td style={{ ...styles.cell, textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleAbrirModalEditar(c)}
-                        style={styles.btnEdit}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleExcluir(c.ID, c.NOME)}
-                        style={styles.btnDelete}
-                      >
-                        Excluir
-                      </button>
+                    <td style={styles.cell}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => handleAbrirModalEditar(c)}
+                          style={styles.btnEdit}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleExcluir(c.ID, c.NOME)}
+                          style={styles.btnDelete}
+                        >
+                          Excluir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
