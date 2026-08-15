@@ -6,7 +6,7 @@ from app.models.funcionario import Funcionario
 from app.models.permissao import Permissao
 from app.models.perfil import Perfil  # Ajuste conforme o caminho do seu modelo de Perfil
 from app.schemas.permissao import PermissaoResponse
-from app.schemas.perfil import PerfilResponse, PerfilPermissoesUpdate
+from app.schemas.perfil import PerfilResponse, PerfilPermissoesUpdate, PerfilCreate, PerfilUpdate
 from app.core.audit import registrar_log
 from sqlalchemy import text
 
@@ -22,7 +22,6 @@ def listar_todas_permissoes(
     """
     return db.query(Permissao).all()
 
-
 @router.get("/perfis", response_model=List[PerfilResponse])
 def listar_perfis(
     db: Session = Depends(get_db),
@@ -32,7 +31,148 @@ def listar_perfis(
     perfis = db.query(Perfil).options(joinedload(Perfil.permissoes)).all()
     return perfis
 
+@router.post("/perfis", response_model=PerfilResponse, status_code=status.HTTP_201_CREATED)
+def criar_perfil(
+    *,
+    db: Session = Depends(get_db),
+    payload: PerfilCreate,
+    current_user: Funcionario = Depends(requer_permissao("PERMISSOES_CRIAR")),
+) -> Any:
+    """
+    Cria um novo perfil com nome e permissões iniciais (opcional).
+    """
+    nome_formatado = payload.NOME.strip().upper()
+    perfil_existente = db.query(Perfil).filter(Perfil.NOME == nome_formatado).first()
+    
+    if perfil_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Já existe um perfil cadastrado com este nome.",
+        )
+
+    novo_perfil = Perfil(
+        NOME=nome_formatado,
+        DESCRICAO=payload.DESCRICAO
+    )
+
+    if payload.PERMISSAO_IDS:
+        permissoes = db.query(Permissao).filter(Permissao.ID.in_(payload.PERMISSAO_IDS)).all()
+        novo_perfil.permissoes = permissoes
+
+    db.add(novo_perfil)
+    db.commit()
+    db.refresh(novo_perfil)
+
+    registrar_log(
+        db=db,
+        usuario_id=current_user.ID,
+        acao="INSERT",
+        tabela="T_PERFIL",
+        registro_id=novo_perfil.ID,
+        detalhes={"nome": novo_perfil.NOME},
+    )
+
+    return novo_perfil
+
 @router.put("/perfis/{perfil_id}", response_model=PerfilResponse)
+def atualizar_dados_perfil(
+    *,
+    db: Session = Depends(get_db),
+    perfil_id: int,
+    payload: PerfilUpdate,
+    current_user: Funcionario = Depends(requer_permissao("PERMISSOES_EDITAR")),
+) -> Any:
+    """
+    Atualiza apenas o nome e/ou a descrição do perfil.
+    """
+    perfil = db.query(Perfil).filter(Perfil.ID == perfil_id).first()
+    if not perfil:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfil não encontrado.",
+        )
+
+    novo_nome = payload.NOME.strip().upper()
+    
+    # Verifica se já existe outro perfil com o mesmo nome
+    perfil_existente = (
+        db.query(Perfil)
+        .filter(Perfil.NOME == novo_nome, Perfil.ID != perfil_id)
+        .first()
+    )
+    if perfil_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Já existe outro perfil com este nome.",
+        )
+
+    detalhes_log = {
+        "nome_anterior": perfil.NOME,
+        "nome_novo": novo_nome,
+        "descricao_anterior": perfil.DESCRICAO,
+        "descricao_nova": payload.DESCRICAO,
+    }
+
+    perfil.NOME = novo_nome
+    perfil.DESCRICAO = payload.DESCRICAO
+
+    db.add(perfil)
+    db.commit()
+    db.refresh(perfil)
+
+    registrar_log(
+        db=db,
+        usuario_id=current_user.ID,
+        acao="UPDATE",
+        tabela="T_PERFIL",
+        registro_id=perfil.ID,
+        detalhes=detalhes_log,
+    )
+
+    return perfil
+
+@router.delete("/perfis/{perfil_id}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_perfil(
+    *,
+    db: Session = Depends(get_db),
+    perfil_id: int,
+    current_user: Funcionario = Depends(requer_permissao("PERMISSOES_EXCLUIR")),
+):
+    """
+    Remove um perfil do sistema caso não esteja vinculado a nenhum funcionário.
+    """
+    perfil = db.query(Perfil).filter(Perfil.ID == perfil_id).first()
+    if not perfil:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfil não encontrado.",
+        )
+
+    # Impede deleção caso existam funcionários com esse perfil
+    funcionarios_vinculados = db.query(Funcionario).filter(Funcionario.PERFIL == perfil_id).count()
+    if funcionarios_vinculados > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Não é possível excluir este perfil pois existem {funcionarios_vinculados} usuário(s) associado(s) a ele.",
+        )
+
+    nome_deletado = perfil.NOME
+
+    db.delete(perfil)
+    db.commit()
+
+    registrar_log(
+        db=db,
+        usuario_id=current_user.ID,
+        acao="DELETE",
+        tabela="T_PERFIL",
+        registro_id=perfil_id,
+        detalhes={"nome": nome_deletado},
+    )
+
+    return None
+
+@router.put("/perfis/{perfil_id}/permissoes", response_model=PerfilResponse)
 def atualizar_permissoes_perfil(
     *,
     db: Session = Depends(get_db),

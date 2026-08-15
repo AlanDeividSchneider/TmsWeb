@@ -5,12 +5,13 @@ export default function GestaoPermissoes() {
     const [perfis, setPerfis] = useState([]);
     const [todasPermissoes, setTodasPermissoes] = useState([]);
     const [perfilSelecionado, setPerfilSelecionado] = useState(null);
-
-    // Usamos Set para performance de busca/muda de O(1)
     const [permissoesAtivas, setPermissoesAtivas] = useState(new Set());
     const [busca, setBusca] = useState('');
     const [loading, setLoading] = useState(false);
     const [salvando, setSalvando] = useState(false);
+    const [modalAberto, setModalAberto] = useState(false);
+    const [modoEdicao, setModoEdicao] = useState(false); // false: Criar | true: Editar
+    const [nomePerfilInput, setNomePerfilInput] = useState('');
 
     useEffect(() => {
         carregarDadosIniciais();
@@ -104,7 +105,7 @@ export default function GestaoPermissoes() {
 
         try {
             setSalvando(true);
-            await api.put(`/permissoes/perfis/${perfilSelecionado.ID}`, {
+            await api.put(`/permissoes/perfis/${perfilSelecionado.ID}/permissoes`, {
                 PERMISSAO_IDS: Array.from(permissoesAtivas),
             });
             alert('Permissões salvas com sucesso!');

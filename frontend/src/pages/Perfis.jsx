@@ -1,33 +1,31 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 
-export default function Clientes({ onLogout }) {
-  const [clientes, setClientes] = useState([]);
+export default function Perfis({ onLogout }) {
+  const [perfis, setPerfis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState('');
 
   // Estado para controlar se estamos EDITANDO ou CRIANDO
-  const [clienteEditandoId, setClienteEditandoId] = useState(null);
+  const [perfilEditandoId, setPerfilEditandoId] = useState(null);
 
   // Estados do Formulário
   const [nome, setNome] = useState('');
-  const [cpfcnpj, setCpfcnpj] = useState('');
-  const [unidade, setUnidade] = useState('');
+  const [descricao, setDescricao] = useState('');
 
-  // Carregar lista de clientes da API
-  const carregarClientes = async () => {
+  // Carregar lista de perfis da API
+  const carregarPerfis = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/clientes/');
-      setClientes(response.data);
+      const response = await api.get('/permissoes/perfis');
+      setPerfis(response.data);
     } catch (err) {
-      // Verifica se o erro veio da API e se o status é 403 (Acesso Negado)
       if (err.response && err.response.status === 403) {
         const mensagemErro = err.response.data?.detail || 'Você não tem permissão para acessar esta tela.';
         alert(mensagemErro);
       } else {
-        alert('Erro ao carregar clientes.');
+        alert('Erro ao carregar perfis.');
       }
     } finally {
       setLoading(false);
@@ -35,25 +33,24 @@ export default function Clientes({ onLogout }) {
   };
 
   useEffect(() => {
-    carregarClientes();
+    carregarPerfis();
   }, []);
 
-  // Abre o Modal para CRIAR um novo cliente
+  // Abre o Modal para CRIAR um novo perfil
   const handleAbrirModalNovo = () => {
-    setClienteEditandoId(null);
+    setPerfilEditandoId(null);
     setNome('');
-    setCpfcnpj('');
-    setUnidade('');
+    setDescricao('');
     setError('');
     setShowModal(true);
   };
 
   // Abre o Modal preenchido para EDITAR
-  const handleAbrirModalEditar = (cliente) => {
-    setClienteEditandoId(cliente.ID);
-    setNome(cliente.NOME);
-    setCpfcnpj(cliente.CPFCNPJ);
-    setUnidade(cliente.UNIDADE);
+  const handleAbrirModalEditar = (perfil) => {
+    const id = perfil.ID || perfil.id;
+    setPerfilEditandoId(id);
+    setNome(perfil.NOME || '');
+    setDescricao(perfil.DESCRICAO || '');
     setError('');
     setShowModal(true);
   };
@@ -64,39 +61,37 @@ export default function Clientes({ onLogout }) {
     setError('');
 
     try {
-      if (clienteEditandoId) {
+      if (perfilEditandoId) {
         // Modo Edição (PUT)
-        await api.put(`/clientes/${clienteEditandoId}`, {
+        await api.put(`/permissoes/perfis/${perfilEditandoId}`, {
           NOME: nome,
-          CPFCNPJ: cpfcnpj,
-          UNIDADE: unidade,
+          DESCRICAO: descricao,
         });
       } else {
         // Modo Criação (POST)
-        await api.post('/clientes/', {
+        await api.post('/permissoes/perfis', {
           NOME: nome,
-          CPFCNPJ: cpfcnpj,
-          UNIDADE: unidade,
+          DESCRICAO: descricao,
         });
       }
 
       // Fecha modal e recarrega
       setShowModal(false);
-      carregarClientes();
+      carregarPerfis();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao salvar cliente.');
+      setError(err.response?.data?.detail || 'Erro ao salvar perfil.');
     }
   };
 
-  // Excluir Cliente
-  const handleExcluir = async (id, nomeCliente) => {
-    if (!confirm(`Tem certeza que deseja excluir o cliente "${nomeCliente}"?`)) return;
+  // Excluir Perfil
+  const handleExcluir = async (id, nomePerfil) => {
+    if (!confirm(`Tem certeza que deseja excluir o perfil "${nomePerfil}"?`)) return;
 
     try {
-      await api.delete(`/clientes/${id}`);
-      carregarClientes();
+      await api.delete(`/permissoes/perfis/${id}`);
+      carregarPerfis();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao excluir cliente.');
+      alert(err.response?.data?.detail || 'Erro ao excluir perfil.');
     }
   };
 
@@ -105,65 +100,64 @@ export default function Clientes({ onLogout }) {
       {/* Header */}
       <div style={styles.header}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#1e293b' }}>Clientes</h1>
-          <p style={{ margin: 0, color: '#64748b' }}>Controle de clientes</p>
+          <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#1e293b' }}>Perfis</h1>
+          <p style={{ margin: 0, color: '#64748b' }}>Controle de perfis de acesso</p>
         </div>
         <div>
           <button onClick={handleAbrirModalNovo} style={styles.btnPrimary}>
-            + Novo Cliente
+            + Novo Perfil
           </button>
         </div>
       </div>
 
-      {/* Tabela de Clientes */}
+      {/* Tabela de Perfis */}
       <div style={styles.card}>
         {loading ? (
-          <p style={{ textAlign: 'center', padding: '2rem' }}>Carregando clientes...</p>
+          <p style={{ textAlign: 'center', padding: '2rem' }}>Carregando perfis...</p>
         ) : (
           <table style={styles.table}>
             <thead>
               <tr style={styles.th}>
                 <th style={styles.cell}>ID</th>
                 <th style={styles.cell}>Nome</th>
-                <th style={styles.cell}>CPF / CNPJ</th>
-                <th style={styles.cell}>Unidade</th>
-                <th style={styles.cell}>Data Cadastro</th>
+                <th style={styles.cell}>Descrição</th>
                 <th style={{ ...styles.cell, textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
-              {clientes.length === 0 ? (
+              {perfis.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ ...styles.cell, textAlign: 'center', color: '#94a3b8' }}>
-                    Nenhum cliente cadastrado.
+                  <td colSpan="4" style={{ ...styles.cell, textAlign: 'center', color: '#94a3b8' }}>
+                    Nenhum perfil cadastrado.
                   </td>
                 </tr>
               ) : (
-                clientes.map((c) => (
-                  <tr key={c.ID} style={styles.tr}>
-                    <td style={styles.cell}>#{c.ID}</td>
-                    <td style={{ ...styles.cell, fontWeight: '600' }}>{c.NOME}</td>
-                    <td style={styles.cell}>{c.CPFCNPJ}</td>
-                    <td style={styles.cell}>{c.UNIDADE}</td>
-                    <td style={styles.cell}>{new Date(c.CRIADO).toLocaleDateString('pt-BR')}</td>
-                    <td style={styles.cell}>
-                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                        <button
-                          onClick={() => handleAbrirModalEditar(c)}
-                          style={styles.btnEdit}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleExcluir(c.ID, c.NOME)}
-                          style={styles.btnDelete}
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                perfis.map((p) => {
+                  const id = p.ID || p.id;
+                  return (
+                    <tr key={id} style={styles.tr}>
+                      <td style={styles.cell}>#{id}</td>
+                      <td style={{ ...styles.cell, fontWeight: '600' }}>{p.NOME}</td>
+                      <td style={styles.cell}>{p.DESCRICAO || '-'}</td>
+                      <td style={styles.cell}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            onClick={() => handleAbrirModalEditar(p)}
+                            style={styles.btnEdit}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleExcluir(id, p.NOME)}
+                            style={styles.btnDelete}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -175,46 +169,32 @@ export default function Clientes({ onLogout }) {
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
             <h2 style={{ marginTop: 0, color: '#0f172a' }}>
-              {clienteEditandoId ? 'Editar Cliente' : 'Novo Cliente'}
+              {perfilEditandoId ? 'Editar Perfil' : 'Novo Perfil'}
             </h2>
 
             {error && <div style={styles.errorAlert}>{error}</div>}
 
             <form onSubmit={handleSalvar}>
               <div style={styles.inputGroup}>
-                <label style={styles.label}>Nome / Razão Social:</label>
+                <label style={styles.label}>Nome do Perfil:</label>
                 <input
                   type="text"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   required
                   style={styles.input}
-                  placeholder="Ex: Empresa Exemplo LTDA"
+                  placeholder="Ex: Gerente Financeiro"
                 />
               </div>
 
               <div style={styles.inputGroup}>
-                <label style={styles.label}>CPF ou CNPJ (somente números):</label>
+                <label style={styles.label}>Descrição:</label>
                 <input
                   type="text"
-                  value={cpfcnpj}
-                  onChange={(e) => setCpfcnpj(e.target.value)}
-                  maxLength={14}
-                  required
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
                   style={styles.input}
-                  placeholder="Ex: 12345678901"
-                />
-              </div>
-
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Unidade:</label>
-                <input
-                  type="text"
-                  value={unidade}
-                  onChange={(e) => setUnidade(e.target.value)}
-                  required
-                  style={styles.input}
-                  placeholder="Ex: Matriz"
+                  placeholder="Ex: Acesso completo aos relatórios e financeiro"
                 />
               </div>
 
@@ -227,7 +207,7 @@ export default function Clientes({ onLogout }) {
                   Cancelar
                 </button>
                 <button type="submit" style={styles.btnPrimary}>
-                  {clienteEditandoId ? 'Atualizar' : 'Salvar Cliente'}
+                  {perfilEditandoId ? 'Atualizar' : 'Salvar Perfil'}
                 </button>
               </div>
             </form>
@@ -238,7 +218,7 @@ export default function Clientes({ onLogout }) {
   );
 }
 
-// Estilos
+// Estilos alinhados exatamente com a tela de Clientes
 const styles = {
   container: { padding: '2rem', width: '100%', boxSizing: 'border-box', fontFamily: 'system-ui, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' },

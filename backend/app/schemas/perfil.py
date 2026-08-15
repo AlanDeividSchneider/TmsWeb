@@ -7,7 +7,9 @@ class PerfilBase(BaseModel):
     DESCRICAO: Optional[str] = None
 
 class PerfilCreate(PerfilBase):
-    pass
+    NOME: str
+    DESCRICAO: Optional[str] = None
+    PERMISSAO_IDS: Optional[List[int]] = []
 
 class PerfilUpdate(BaseModel):
     NOME: Optional[str] = None

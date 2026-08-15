@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Clientes from './pages/Clientes';
 import Funcionarios from './pages/Funcionarios';
 import GestaoPermissoes from './pages/GestaoPermissoes';
+import Perfis from './pages/Perfis'
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -88,6 +89,12 @@ export default function App() {
                 >
                   Permissões
                 </button>
+                <button
+                  onClick={() => selecionarAba('perfis')}
+                  style={abaAtiva === 'perfis' ? styles.dropdownItemActive : styles.dropdownItem}
+                >
+                  Perfis
+                </button>
               </div>
             )}
           </div>
@@ -103,6 +110,7 @@ export default function App() {
         {abaAtiva === 'clientes' && <Clientes onLogout={handleLogout} />}
         {abaAtiva === 'funcionarios' && <Funcionarios />}
         {abaAtiva === 'permissoes' && <GestaoPermissoes />}
+        {abaAtiva === 'perfis' && <Perfis />}
       </main>
     </div>
   );
