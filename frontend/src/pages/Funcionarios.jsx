@@ -3,6 +3,7 @@ import api from '../services/api';
 
 export default function Funcionarios() {
   const [funcionarios, setFuncionarios] = useState([]);
+  const [perfis, setPerfis] = useState([]); // Guarda a lista dinâmica de perfis da API
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState('');
@@ -16,22 +17,33 @@ export default function Funcionarios() {
   const [unidade, setUnidade] = useState('');
   const [login, setLogin] = useState('');
   const [senha, setSenha] = useState('');
-  const [perfil, setPerfil] = useState('SUPORTE');
+  const [perfil, setPerfil] = useState('');
 
-  const carregarFuncionarios = async () => {
+  // Carrega Funcionários e Perfis em paralelo
+  const carregarDados = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/funcionarios/');
-      setFuncionarios(response.data);
+      const [resFuncionarios, resPerfis] = await Promise.all([
+        api.get('/funcionarios/'),
+        api.get('/permissoes/perfis') // Busca a lista de perfis do banco de dados
+      ]);
+
+      setFuncionarios(resFuncionarios.data);
+      setPerfis(resPerfis.data);
+
+      // Define o primeiro perfil disponível como valor padrão
+      if (resPerfis.data.length > 0 && !perfil) {
+        setPerfil(String(resPerfis.data[0].ID));
+      }
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao carregar funcionários.');
+      alert(err.response?.data?.detail || 'Erro ao carregar dados.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    carregarFuncionarios();
+    carregarDados();
   }, []);
 
   const handleAbrirModalNovo = () => {
@@ -41,7 +53,8 @@ export default function Funcionarios() {
     setUnidade('');
     setLogin('');
     setSenha('');
-    setPerfil('SUPORTE');
+    // Seleciona o primeiro perfil por padrão se existir
+    setPerfil(perfis.length > 0 ? String(perfis[0].ID) : '');
     setError('');
     setShowModal(true);
   };
@@ -52,34 +65,29 @@ export default function Funcionarios() {
     setCpf(func.CPF);
     setUnidade(func.UNIDADE);
     setLogin(func.LOGIN);
-    setSenha(''); // Deixa a senha em branco na edição
-    setPerfil(func.PERFIL);
+    setSenha('');
+    setPerfil(String(func.PERFIL));
     setError('');
     setShowModal(true);
   };
 
-const handleDelete = async (id, nome) => {
-    // Validação extra para garantir que o ID existe antes de chamar a API
+  const handleDelete = async (id, nomeFunc) => {
     if (!id) {
       alert('Erro: ID do funcionário inválido.');
       return;
     }
 
-    // Confirmação antes de excluir (agora utilizando 'nome' corretamente)
-    if (!window.confirm(`Tem certeza que deseja excluir o funcionário "${nome}"?`)) {
+    if (!window.confirm(`Tem certeza que deseja excluir o funcionário "${nomeFunc}"?`)) {
       return;
     }
 
     try {
       await api.delete(`/funcionarios/${id}`);
       alert('Funcionário excluído com sucesso!');
-      // Recarrega a lista para atualizar a tabela
-      carregarFuncionarios();
+      carregarDados();
     } catch (err) {
       if (err.response && err.response.status === 403) {
-        // Captura o erro de falta de permissão enviado pelo FastAPI
-        const mensagemErro = err.response.data?.detail || 'Você não tem permissão para excluir funcionários.';
-        alert(mensagemErro);
+        alert(err.response.data?.detail || 'Você não tem permissão para excluir funcionários.');
       } else if (err.response && err.response.data?.detail) {
         alert(err.response.data.detail);
       } else {
@@ -98,9 +106,8 @@ const handleDelete = async (id, nome) => {
         const payload = {
           NOME: nome,
           UNIDADE: unidade,
-          PERFIL: perfil,
+          PERFIL: Number(perfil),
         };
-        // Só envia senha na edição se tiver sido preenchida
         if (senha) payload.SENHA = senha;
 
         await api.put(`/funcionarios/${funcEditandoId}`, payload);
@@ -112,12 +119,12 @@ const handleDelete = async (id, nome) => {
           UNIDADE: unidade,
           LOGIN: login,
           SENHA: senha,
-          PERFIL: perfil,
+          PERFIL: Number(perfil),
         });
       }
 
       setShowModal(false);
-      carregarFuncionarios();
+      carregarDados();
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao salvar funcionário.');
     }
@@ -127,7 +134,7 @@ const handleDelete = async (id, nome) => {
     <div style={styles.container}>
       <div style={styles.header}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#1e293b' }}>Gestão de Funcionários</h1>
+          <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#1e293b' }}>Funcionários</h1>
           <p style={{ margin: 0, color: '#64748b' }}>Controle de usuários e permissões de acesso</p>
         </div>
         <button onClick={handleAbrirModalNovo} style={styles.btnPrimary}>
@@ -152,31 +159,43 @@ const handleDelete = async (id, nome) => {
               </tr>
             </thead>
             <tbody>
-              {funcionarios.map((f) => (
-                <tr key={f.ID} style={styles.tr}>
-                  <td style={styles.cell}>#{f.ID}</td>
-                  <td style={{ ...styles.cell, fontWeight: '600' }}>{f.NOME}</td>
-                  <td style={styles.cell}>{f.LOGIN}</td>
-                  <td style={styles.cell}>{f.CPF}</td>
-                  <td style={styles.cell}>{f.UNIDADE}</td>
-                  <td style={styles.cell}>
-                    <span style={f.PERFIL === 'ADMINISTRADOR' ? styles.badgeAdmin : styles.badgeUser}>
-                      {f.PERFIL}
-                    </span>
-                  </td>
-                  <td style={{ ...styles.cell, textAlign: 'center' }}>
-                    <button onClick={() => handleAbrirModalEditar(f)} style={styles.btnEdit}>
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(f.ID, f.NOME)}
-                      style={styles.btnDelete}
-                    >
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {funcionarios.map((f) => {
+                // Localiza dinamicamente o objeto do perfil correspondente
+                const perfilEncontrado = perfis.find((p) => String(p.ID) === String(f.PERFIL));
+                const nomePerfil = perfilEncontrado ? perfilEncontrado.NOME : f.PERFIL;
+
+                return (
+                  <tr key={f.ID} style={styles.tr}>
+                    <td style={styles.cell}>#{f.ID}</td>
+                    <td style={{ ...styles.cell, fontWeight: '600' }}>{f.NOME}</td>
+                    <td style={styles.cell}>{f.LOGIN}</td>
+                    <td style={styles.cell}>{f.CPF}</td>
+                    <td style={styles.cell}>{f.UNIDADE}</td>
+                    <td style={styles.cell}>
+                      <span
+                        style={
+                          String(nomePerfil).toUpperCase() === 'ADMINISTRADOR'
+                            ? styles.badgeAdmin
+                            : styles.badgeUser
+                        }
+                      >
+                        {nomePerfil}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.cell, textAlign: 'center' }}>
+                      <button onClick={() => handleAbrirModalEditar(f)} style={styles.btnEdit}>
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(f.ID, f.NOME)}
+                        style={styles.btnDelete}
+                      >
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -211,7 +230,7 @@ const handleDelete = async (id, nome) => {
                     type="text"
                     value={cpf}
                     onChange={(e) => setCpf(e.target.value)}
-                    disabled={!!funcEditandoId} // CPF não pode ser alterado na edição
+                    disabled={!!funcEditandoId}
                     maxLength={11}
                     required
                     style={styles.input}
@@ -236,7 +255,7 @@ const handleDelete = async (id, nome) => {
                     type="text"
                     value={login}
                     onChange={(e) => setLogin(e.target.value)}
-                    disabled={!!funcEditandoId} // Login também fica travado na edição
+                    disabled={!!funcEditandoId}
                     required
                     style={styles.input}
                   />
@@ -248,9 +267,11 @@ const handleDelete = async (id, nome) => {
                     onChange={(e) => setPerfil(e.target.value)}
                     style={styles.input}
                   >
-                    <option value="1">ADMINISTRADOR</option>
-                    <option value="2">SUPORTE</option>
-                    <option value="3">USUÁRIO</option>
+                    {perfis.map((p) => (
+                      <option key={p.ID} value={p.ID}>
+                        {p.NOME}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
