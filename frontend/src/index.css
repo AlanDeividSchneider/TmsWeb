@@ -52,15 +52,18 @@
 
 body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  background-color: #f8fafc; /* Cor de fundo suave para as páginas internas */
 }
 
 #root {
-  width: 1126px;
+  width: 100%; /* Mudado de 1126px para ocupar 100% da tela */
   max-width: 100%;
-  margin: 0 auto;
+  margin: 0;
   text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
+  /* border-inline: 1px solid var(--border); <-- Linha removida */
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
