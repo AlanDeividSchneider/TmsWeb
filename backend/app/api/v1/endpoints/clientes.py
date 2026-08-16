@@ -61,11 +61,6 @@ def create_cliente(
     cliente_in: ClienteCreate,
     current_user: Funcionario = Depends(requer_permissao("CLIENTES_CRIAR")),
 ) -> Any:
-    """
-    Cadastra um novo cliente e grava log de auditoria.
-    Exige a permissão: CLIENTES_CRIAR
-    """
-    # Validação de duplicidade por documento se existir no schema
     if hasattr(cliente_in, "DOCUMENTO") and cliente_in.DOCUMENTO:
         existente = db.query(Cliente).filter(Cliente.DOCUMENTO == cliente_in.DOCUMENTO).first()
         if existente:
@@ -114,7 +109,18 @@ def update_cliente(
     estado_anterior = {
         "NOME": cliente.NOME,
         "UNIDADE": cliente.UNIDADE,
-        "CPFCNPJ": cliente.CPFCNPJ
+        "CPFCNPJ": cliente.CPFCNPJ,
+        "IE": cliente.INSCRICAO_ESTADUAL,
+        "EMAIL": cliente.EMAIL,
+        "CEP": cliente.CEP,
+        "ENDERECO": cliente.ENDERECO,
+        "NUMERO": cliente.NUMERO,
+        "BAIRRO": cliente.BAIRRO,
+        "CIDADE": cliente.CIDADE,
+        "ESTADO": cliente.ESTADO,
+        "TELEFONE": cliente.TELEFONE,
+        "CELULAR": cliente.CELULAR,
+        "CODIGO_IBGE":  cliente.CODIGO_IBGE_CIDADE
     }
 
     update_data = cliente_in.model_dump(exclude_unset=True)
@@ -126,9 +132,20 @@ def update_cliente(
     db.refresh(cliente)
 
     estado_novo = {
-            "NOME": cliente.NOME,
-            "UNIDADE": cliente.UNIDADE,
-            "CPFCNPJ": cliente.CPFCNPJ
+        "NOME": cliente.NOME,
+        "UNIDADE": cliente.UNIDADE,
+        "CPFCNPJ": cliente.CPFCNPJ,
+        "IE": cliente.INSCRICAO_ESTADUAL,
+        "EMAIL": cliente.EMAIL,
+        "CEP": cliente.CEP,
+        "ENDERECO": cliente.ENDERECO,
+        "NUMERO": cliente.NUMERO,
+        "BAIRRO": cliente.BAIRRO,
+        "CIDADE": cliente.CIDADE,
+        "ESTADO": cliente.ESTADO,
+        "TELEFONE": cliente.TELEFONE,
+        "CELULAR": cliente.CELULAR,
+        "CODIGO_IBGE":  cliente.CODIGO_IBGE_CIDADE
         }
 
     detalhes_log = {
